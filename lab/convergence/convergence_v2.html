@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Convergence v2</title>
+<meta name="description" content="Alignment as a result, not a script: each node integrates dθ/dt = ω + K·sin(T−θ) against a shared target; the pulse fires when the field itself coheres.">
+<style>
+:root{
+  --surface:#1a1a19; --panel:#222220; --line:#33332f; --ink:#f0efec; --ink2:#c3c2b7; --muted:#8a8984;
+  --blue:#3987e5; --orange:#d95926; --aqua:#199e70; --yellow:#c98500; --violet:#9085e9; --red:#e66767;
+}
+:root[data-theme="light"]{
+  --surface:#fcfcfb; --panel:#f3f2ee; --line:#dedcd4; --ink:#0b0b0b; --ink2:#52514e; --muted:#8a8984;
+  --blue:#2a78d6; --orange:#eb6834; --aqua:#1baf7a; --yellow:#eda100; --violet:#6250d6; --red:#e34948;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--surface);color:var(--ink);font-family:"Heebo","Inter",system-ui,sans-serif;font-size:15px;line-height:1.5}
+html[dir="ltr"] .he{display:none!important} html[dir="rtl"] .en{display:none!important}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
+h1{font-size:1.35rem;margin:0;font-weight:600}
+h1 small{color:var(--ink2);font-weight:400;font-size:.9rem;margin-inline-start:8px}
+.btn{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:5px 12px;font:inherit;cursor:pointer}
+.btn:hover{border-color:var(--ink2)} .btn.primary{background:var(--aqua);border-color:var(--aqua);color:#fff}
+.btn.active{border-color:var(--yellow);color:var(--yellow)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.grid{display:grid;grid-template-columns:1.25fr 1fr;gap:16px}
+@media (max-width:820px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.panel h2{font-size:.95rem;margin:0 0 8px;color:var(--ink2);font-weight:500}
+canvas{width:100%;height:auto;display:block}
+.nodes{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.nodes canvas{aspect-ratio:1/1}
+.sliders{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px 16px;margin-top:10px}
+label.s{display:flex;flex-direction:column;font-size:.85rem;color:var(--ink2)}
+label.s span b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--aqua)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.stat{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.stat .k{font-size:.75rem;color:var(--muted)} .stat .v{font-size:1.25rem;font-variant-numeric:tabular-nums}
+.stat.pulse .v{color:var(--yellow)}
+.note{font-size:.9rem;color:var(--ink2);margin-top:10px}
+.note code,.bdi{direction:ltr;unicode-bidi:isolate;font-family:ui-monospace,Menlo,monospace;font-size:.85em}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.8rem;color:var(--ink2);margin-top:6px}
+.legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-inline-end:5px;border-radius:2px}
+footer{margin-top:18px;border-top:1px solid var(--line);padding-top:10px;color:var(--muted);font-size:.8rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Convergence v2 <small class="he">יישור כתוצאה, לא כתסריט</small><small class="en">alignment as a result, not a script</small></h1>
+  <div class="row">
+    <button class="btn" id="play">▶ <span class="he">הפעל</span><span class="en">Run</span></button>
+    <button class="btn" id="reset"><span class="he">איפוס</span><span class="en">Reset</span></button>
+    <button class="btn" id="lang"><span class="he">English</span><span class="en">עברית</span></button>
+    <button class="btn" id="theme">◐</button>
+  </div>
+</header>
+
+<div class="row" id="scen">
+  <span class="he" style="color:var(--ink2);font-size:.85rem">תרחיש:</span><span class="en" style="color:var(--ink2);font-size:.85rem">Scenario:</span>
+  <button class="btn active" data-s="constructive">Constructive</button>
+  <button class="btn" data-s="partial">Partial</button>
+  <button class="btn" data-s="destructive">Destructive</button>
+  <button class="btn" data-s="flattery">Scattered / flattery</button>
+  <button class="btn" data-s="toowide"><span class="he">פער רחב מדי</span><span class="en">Too wide</span> (K&lt;max|ω|)</button>
+  <button class="btn" data-s="toonarrow"><span class="he">פער צר מדי</span><span class="en">Too narrow</span> (K≫σ)</button>
+</div>
+
+<div class="grid" style="margin-top:14px">
+  <div class="panel">
+    <h2 class="he">מסכי נוד — כל נוד רואה רק את היעד המשותף (מקווקו), לא את שכניו</h2>
+    <h2 class="en">Node screens — each node sees only the shared target (dashed), never its neighbours</h2>
+    <div class="nodes" id="nodes"></div>
+    <div class="sliders">
+      <label class="s"><span>K <b id="vK"></b></span><input type="range" id="K" min="0" max="4" step="0.05" value="1.5"></label>
+      <label class="s"><span>σ<sub>ω</sub> (gap) <b id="vS"></b></span><input type="range" id="S" min="0" max="1.6" step="0.05" value="0.35"></label>
+      <label class="s"><span>noise D <b id="vD"></b></span><input type="range" id="D" min="0" max="0.2" step="0.005" value="0.02"></label>
+      <label class="s"><span>target drift dT/dt <b id="vT"></b></span><input type="range" id="T" min="0" max="1" step="0.02" value="0"></label>
+      <label class="s"><span>N <b id="vN"></b></span><input type="range" id="N" min="2" max="16" step="1" value="8"></label>
+      <label class="s"><span>R* (pulse) <b id="vR"></b></span><input type="range" id="R" min="0.5" max="0.99" step="0.01" value="0.9"></label>
+    </div>
+  </div>
+  <div class="panel">
+    <h2 class="he">שדה — R(t), approval(t), ושלבים</h2><h2 class="en">Field — R(t), approval(t), phases</h2>
+    <canvas id="chart" width="560" height="300"></canvas>
+    <div class="legend">
+      <span><i style="background:var(--aqua)"></i>R = |Σ A e<sup>iθ</sup>| / Σ A</span>
+      <span><i style="background:var(--ink2)"></i>approval = mean cos(θ<sub>i</sub> − own target)</span>
+      <span><i style="background:var(--yellow)"></i><span class="he">פולס / החזקה</span><span class="en">pulse / hold</span></span>
+      <span><i style="background:var(--violet)"></i><span class="he">דעיכה (מורינגה)</span><span class="en">decay (moringa)</span></span>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="k">R</div><div class="v" id="sR">–</div></div>
+      <div class="stat"><div class="k">whole ÷ parts</div><div class="v" id="sW">–</div></div>
+      <div class="stat pulse"><div class="k"><span class="he">פולס ב־</span><span class="en">pulse at</span></div><div class="v" id="sP">–</div></div>
+      <div class="stat"><div class="k">approval</div><div class="v" id="sA">–</div></div>
+    </div>
+    <h2 style="margin-top:12px" class="he">דיאגרמת פאזה — איפה אנחנו על K × σ<sub>ω</sub></h2><h2 style="margin-top:12px" class="en">Phase diagram — where we are on K × σ<sub>ω</sub></h2>
+    <canvas id="phase" width="560" height="200"></canvas>
+    <div class="note he">אזור כהה: השדה ננעל ו־R עובר את R*. קו אדום מקווקו: <span class="bdi">K = E[max|ω|]</span> — תנאי הנעילה של הנוד הבודד. בין הקו לבין גבול הפולס יש רצועה שבה כל נוד נעול אך השדה לא קוהרנטי: הפער נשאר כהיסט פאזה <span class="bdi">arcsin(ω/K)</span>.</div>
+    <div class="note en">Dark region: the field locks and R crosses R*. Red dashed: <span class="bdi">K = E[max|ω|]</span>, the single-node locking condition. Between that line and the pulse boundary every node is locked yet the field is not coherent: the gap survives as a phase offset <span class="bdi">arcsin(ω/K)</span>.</div>
+  </div>
+</div>
+
+<div class="panel" style="margin-top:16px">
+  <h2 class="he">מה השתנה מ־v1</h2><h2 class="en">What changed from v1</h2>
+  <div class="note he">ב־v1 הפאזות סובבו אל היעד ב־<span class="bdi">smoothstep</span>. ההתכנסות הייתה קלט, וה־8× היה מובטח. כאן כל נוד מריץ חוק מקומי: <span class="bdi">dθ/dt = ω + K·sin(T − θ) + noise</span>. הדופמין הוא היישור עצמו — הפולס נורה כש־R חוצה את R* בעלייה, בלי שופט חיצוני. אחרי הפולס המשרעת דועכת בשני קבועי זמן (קצה מהיר, ליבה איטית) עד שארית. ב־Scattered / flattery כל נוד מדווח "מיושר" (approval → 1) בעוד השדה נשאר חשוך (R ≈ 0): זו המדידה שמפרידה 2I₀ מ־4I₀.</div>
+  <div class="note en">In v1 phases were rotated onto the target with <span class="bdi">smoothstep</span>: convergence was an input and the 8× peak was guaranteed. Here each node runs a local rule: <span class="bdi">dθ/dt = ω + K·sin(T − θ) + noise</span>. Dopamine is alignment itself: the pulse fires when R crosses R* while rising, no external judge. After the pulse, amplitude decays on two time constants (fast edge, slow core) down to a residue. In Scattered / flattery every node reports "aligned" (approval → 1) while the field stays dark (R ≈ 0): the measurement that separates 2I₀ from 4I₀.</div>
+</div>
+
+<footer>holyproject · lab/convergence · v2 · <span class="bdi">convergence_v2.py</span> <span class="he">מפיק את אותן מדידות ב־numpy, ואת דיאגרמת הפאזה המלאה.</span><span class="en">reproduces the same measurements in numpy, plus the full phase diagram.</span></footer>
+</div>
+
+<script>
+(() => {
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const $ = id => document.getElementById(id);
+const TAU = Math.PI*2;
+
+// ---------- RNG (seeded, so a reset reproduces) ----------
+function mulberry32(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function gauss(r){let u=0,v=0;while(u===0)u=r();while(v===0)v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(TAU*v)}
+
+// ---------- state ----------
+const P = {K:1.5,S:0.35,D:0.02,T:0,N:8,R:0.9, hold:0.6, tauF:0.8, tauS:4.0, core:0.35, residue:0.15, dt:0.01, Ttot:12};
+let scen='constructive', seed=7, st=null, raf=null, running=false;
+
+function offsets(name,N){
+  const h=Math.floor(N/2), o=new Array(N).fill(0);
+  if(name==='partial'){const r=mulberry32(seed+100);for(let i=0;i<N;i++)o[i]=(r()*2-1)*0.3}
+  if(name==='destructive'){for(let i=h;i<N;i++)o[i]=Math.PI}
+  if(name==='flattery'){for(let i=0;i<N;i++)o[i]=TAU*i/N}
+  return o;
+}
+function init(){
+  const r=mulberry32(seed);
+  const N=P.N;
+  st={t:0,target:0,theta:[],omega:[],A:new Array(N).fill(1),delta:offsets(scen,N),rng:r,
+      hist:{t:[],R:[],ap:[],ph:[]},pulse:null,R:0,ratio:0,ap:0,prevR:0};
+  for(let i=0;i<N;i++)st.omega.push(gauss(r)*P.S);
+  for(let i=0;i<N;i++)st.theta.push((r()*2-1)*Math.PI);
+  buildNodes(); drawAll();
+}
+function step(){
+  const N=P.N, dt=P.dt, s=st;
+  const sq=Math.sqrt(2*P.D)/Math.sqrt(dt);
+  for(let i=0;i<N;i++){
+    const ref=s.target+s.delta[i];
+    s.theta[i]+= (s.omega[i] + P.K*Math.sin(ref-s.theta[i]) + sq*gauss(s.rng))*dt;
+  }
+  s.target+=P.T*dt; s.t+=dt;
+  let ph=0;
+  if(s.pulse!==null && s.t>=s.pulse+P.hold){
+    const u=s.t-s.pulse-P.hold;
+    const env=(1-P.core)*Math.exp(-u/P.tauF)+P.core*Math.exp(-u/P.tauS);
+    const a=P.residue+(1-P.residue)*env; for(let i=0;i<N;i++)s.A[i]=a; ph=2;
+  } else if(s.pulse!==null) ph=1;
+  let re=0,im=0,sa=0,sa2=0,ap=0;
+  for(let i=0;i<N;i++){const rel=s.theta[i]-s.target;re+=s.A[i]*Math.cos(rel);im+=s.A[i]*Math.sin(rel);sa+=s.A[i];sa2+=s.A[i]*s.A[i];ap+=Math.cos(s.theta[i]-(s.target+s.delta[i]))}
+  const mag2=re*re+im*im;
+  s.prevR=s.R; s.R=Math.sqrt(mag2)/sa; s.ratio=mag2/sa2; s.ap=ap/N;
+  if(s.pulse===null && s.R>=P.R && s.R>s.prevR && s.t>dt*2){s.pulse=s.t;ph=1}
+  s.hist.t.push(s.t);s.hist.R.push(s.R);s.hist.ap.push(s.ap);s.hist.ph.push(ph);
+}
+function loop(){
+  if(!running)return;
+  for(let k=0;k<4;k++){ if(st.t<P.Ttot) step(); }
+  drawAll();
+  if(st.t>=P.Ttot){running=false;$('play').innerHTML='▶ <span class="he">הפעל</span><span class="en">Run</span>';applyLang();return}
+  raf=requestAnimationFrame(loop);
+}
+
+// ---------- drawing ----------
+let nodeCvs=[];
+function buildNodes(){
+  const box=$('nodes'); box.innerHTML=''; nodeCvs=[];
+  for(let i=0;i<P.N;i++){const c=document.createElement('canvas');c.width=160;c.height=160;box.appendChild(c);nodeCvs.push(c)}
+  box.style.gridTemplateColumns=`repeat(${P.N<=8?4:Math.ceil(P.N/2)},1fr)`;
+}
+function drawNode(c,i){
+  const g=c.getContext('2d'),w=c.width,h=c.height,cx=w/2,cy=h/2,r=w*0.4;
+  g.clearRect(0,0,w,h);
+  g.strokeStyle=css('--line');g.lineWidth=1.5;g.beginPath();g.arc(cx,cy,r,0,TAU);g.stroke();
+  const ref=st.target+st.delta[i], th=st.theta[i], a=st.A[i];
+  g.setLineDash([4,4]);g.strokeStyle=css('--ink2');g.beginPath();g.moveTo(cx,cy);g.lineTo(cx+r*Math.cos(ref),cy-r*Math.sin(ref));g.stroke();g.setLineDash([]);
+  if(st.delta[i]!==0){g.setLineDash([2,5]);g.strokeStyle=css('--muted');g.beginPath();g.moveTo(cx,cy);g.lineTo(cx+r*Math.cos(st.target),cy-r*Math.sin(st.target));g.stroke();g.setLineDash([])}
+  g.strokeStyle=css('--yellow');g.lineWidth=3;g.beginPath();g.moveTo(cx,cy);g.lineTo(cx+a*r*Math.cos(th),cy-a*r*Math.sin(th));g.stroke();
+  g.fillStyle=css('--yellow');g.beginPath();g.arc(cx+a*r*Math.cos(th),cy-a*r*Math.sin(th),4,0,TAU);g.fill();
+  g.fillStyle=css('--muted');g.font='11px system-ui';g.textAlign='left';g.fillText(`ω=${st.omega[i].toFixed(2)}`,6,h-6);
+  g.textAlign='right';g.fillText(`cos=${Math.cos(th-ref).toFixed(2)}`,w-6,h-6);
+}
+function drawChart(){
+  const c=$('chart'),g=c.getContext('2d'),w=c.width,h=c.height,L=36,B=24,R0=8,T0=8;
+  g.clearRect(0,0,w,h);
+  const X=t=>L+(w-L-R0)*t/P.Ttot, Y=v=>T0+(h-T0-B)*(1-(v+0.2)/1.25);
+  const H=st.hist;
+  // phase bands
+  let start=null,cur=0;
+  for(let k=0;k<=H.t.length;k++){const ph=k<H.t.length?H.ph[k]:-1;if(ph!==cur){if(cur>0&&start!==null){g.fillStyle=cur===1?css('--yellow'):css('--violet');g.globalAlpha=0.16;g.fillRect(X(start),T0,X(H.t[Math.min(k,H.t.length-1)])-X(start),h-T0-B);g.globalAlpha=1}start=k<H.t.length?H.t[k]:null;cur=ph}}
+  // grid
+  g.strokeStyle=css('--line');g.lineWidth=1;g.fillStyle=css('--muted');g.font='11px system-ui';g.textAlign='right';
+  for(const v of [0,0.5,1]){g.beginPath();g.moveTo(L,Y(v));g.lineTo(w-R0,Y(v));g.stroke();g.fillText(v.toFixed(1),L-4,Y(v)+4)}
+  g.setLineDash([3,4]);g.strokeStyle=css('--yellow');g.beginPath();g.moveTo(L,Y(P.R));g.lineTo(w-R0,Y(P.R));g.stroke();g.setLineDash([]);
+  g.textAlign='center';for(let t=0;t<=P.Ttot;t+=2){g.fillText(t+'s',X(t),h-8)}
+  const line=(arr,col,wd)=>{g.strokeStyle=col;g.lineWidth=wd;g.beginPath();for(let k=0;k<arr.length;k++){const x=X(H.t[k]),y=Y(arr[k]);k?g.lineTo(x,y):g.moveTo(x,y)}g.stroke()};
+  line(H.ap,css('--ink2'),1.2); line(H.R,css('--aqua'),2.2);
+}
+// phase diagram minimap: analytic-ish — locked iff K > max|ω| ; coherent-enough iff K > c·σ (c from numpy sweep ≈ 2.7)
+function drawPhase(){
+  const c=$('phase'),g=c.getContext('2d'),w=c.width,h=c.height,L=36,B=22,R0=8,T0=6;
+  g.clearRect(0,0,w,h);
+  const Kmax=4,Smax=1.6, X=k=>L+(w-L-R0)*k/Kmax, Y=s=>T0+(h-T0-B)*(1-s/Smax);
+  const nx=40,ny=20;
+  for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){
+    const K=(i+0.5)*Kmax/nx,S=(j+0.5)*Smax/ny;
+    const x=K/(1.77*S+1e-9); // K relative to E[max|ω|] for N=8
+    let R= x<1 ? 0.35*x : 1-0.65/(1+ (x-1)*(x-1)*3);
+    g.fillStyle=css('--blue');g.globalAlpha=0.08+0.9*Math.max(0,Math.min(1,R));
+    g.fillRect(X(K-Kmax/nx/2),Y(S+Smax/ny/2),(w-L-R0)/nx+0.5,(h-T0-B)/ny+0.5);
+  }
+  g.globalAlpha=1;
+  g.setLineDash([5,4]);g.strokeStyle=css('--red');g.lineWidth=1.5;g.beginPath();g.moveTo(X(0),Y(0));g.lineTo(X(1.77*Smax),Y(Smax));g.stroke();
+  g.setLineDash([]);g.strokeStyle=css('--yellow');g.lineWidth=2;g.beginPath();g.moveTo(X(0),Y(0));g.lineTo(X(2.7*Smax),Y(Smax));g.stroke();
+  g.fillStyle=css('--muted');g.font='11px system-ui';g.textAlign='center';for(let k=0;k<=4;k++)g.fillText(k,X(k),h-6);
+  g.textAlign='right';for(const s of [0,0.8,1.6])g.fillText(s.toFixed(1),L-4,Y(s)+4);
+  g.fillText('K →',w-R0,h-6);
+  // current point
+  g.fillStyle=css('--yellow');g.strokeStyle=css('--ink');g.lineWidth=1.5;g.beginPath();g.arc(X(P.K),Y(P.S),6,0,TAU);g.fill();g.stroke();
+}
+function drawAll(){
+  for(let i=0;i<P.N;i++)drawNode(nodeCvs[i],i);
+  drawChart(); drawPhase();
+  $('sR').textContent=st.R.toFixed(2);
+  $('sW').textContent=st.ratio.toFixed(2)+'×';
+  $('sP').textContent=st.pulse===null?'–':st.pulse.toFixed(2)+'s';
+  $('sA').textContent=st.ap.toFixed(2);
+}
+
+// ---------- controls ----------
+const PRESET={constructive:{K:1.5,S:0.35},partial:{K:1.5,S:0.35},destructive:{K:1.5,S:0.35},flattery:{K:1.5,S:0.35},toowide:{K:0.6,S:0.9},toonarrow:{K:4,S:0.05}};
+function syncLabels(){$('vK').textContent=P.K.toFixed(2);$('vS').textContent=P.S.toFixed(2);$('vD').textContent=P.D.toFixed(3);$('vT').textContent=P.T.toFixed(2);$('vN').textContent=P.N;$('vR').textContent=P.R.toFixed(2)}
+for(const id of ['K','S','D','T','N','R']){$(id).addEventListener('input',e=>{P[id]=parseFloat(e.target.value);syncLabels();if(id==='N'||id==='S'){stop();init()}else drawAll()})}
+document.querySelectorAll('#scen button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#scen button').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+  const s=b.dataset.s; scen=(s==='toowide'||s==='toonarrow')?'constructive':s;
+  const p=PRESET[s];P.K=p.K;P.S=p.S;$('K').value=P.K;$('S').value=P.S;syncLabels();stop();init();start();
+}));
+function start(){if(running)return;running=true;$('play').innerHTML='❚❚ <span class="he">עצור</span><span class="en">Pause</span>';applyLang();raf=requestAnimationFrame(loop)}
+function stop(){running=false;if(raf)cancelAnimationFrame(raf);$('play').innerHTML='▶ <span class="he">הפעל</span><span class="en">Run</span>';applyLang()}
+$('play').addEventListener('click',()=>{if(running)stop();else{if(st.t>=P.Ttot)init();start()}});
+$('reset').addEventListener('click',()=>{stop();seed=7;init()});
+function applyLang(){/* css handles .he/.en; nothing else */}
+$('lang').addEventListener('click',()=>{const de=document.documentElement;const rtl=de.dir==='rtl';de.dir=rtl?'ltr':'rtl';de.lang=rtl?'en':'he';drawAll()});
+$('theme').addEventListener('click',()=>{const de=document.documentElement;de.dataset.theme=de.dataset.theme==='light'?'dark':'light';drawAll()});
+try{if(window.matchMedia('(prefers-color-scheme: light)').matches)document.documentElement.dataset.theme='light'}catch(e){}
+syncLabels(); init(); start();
+})();
+</script>
+</body>
+</html>
